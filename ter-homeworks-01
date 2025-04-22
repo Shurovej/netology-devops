@@ -1,9 +1,11 @@
 #Решение
 
 [Задание 1.2] Согласно файлу .gitignore, секретную информацию (логины, пароли, ключи, токены и т. д.) можно хранить в файле: personal.auto.tfvars
+
 [Задание 1.3] В файле состояния terraform.tfstate содержится секретное значение, сгенерированное ресурсом random_password.random_string.
       Ключ и значение: "result": "mY5LjT2yKBCUzfE2"
       Это строка, которую создал Terraform при выполнении random_password.
+
 [Задание 1.4]Найденные ошибки в раскомментированном коде:
       Отсутствие имени ресурса docker_image
       В строке 24: resource "docker_image" (не хватает второго идентификатора).
@@ -17,3 +19,50 @@
       В строке 31: random_password.random_string_FAKE.resulT (неверное имя ресурса и атрибута).
       Как исправить:
       name = "example_${random_password.random_string.result}"  # Правильное имя ресурса и атрибута
+
+[Задание 1.5] https://github.com/Shurovej/netology-devops/blob/main/5.png
+resource "docker_image" "nginx" {
+  name         = "nginx:latest"
+  keep_locally = true
+}
+
+resource "docker_container" "nginx" {
+  image = docker_image.nginx.image_id
+  name  = "example_${random_password.random_string.result}"
+
+  ports {
+    internal = 80
+    external = 9090
+  }
+}
+
+[Задание 1.6] https://github.com/Shurovej/netology-devops/blob/main/6.png
+Опасность -auto-approve
+Terraform применит изменения без вашего согласия, даже если в plan были критические ошибки (например, удаление продакшен-базы).
+Автоматизация в CI/CD
+Ключ полезен в скриптах/пайплайнах (например, GitHub Actions), где нет интерактивного ввода.
+Но если plan не проверен вручную, можно сломать инфраструктуру.
+Чувствительные изменения
+Например, случайный terraform destroy -auto-approve уничтожит всё без вопросов.
+Когда использовать:
+В тестовых средах с предсказуемыми изменениями.
+В автоматизированных процессах, где plan уже проверен.
+
+[Задание 1.7] https://github.com/Shurovej/netology-devops/blob/main/7.png
+
+[Задание 1.8] 
+Почему не был удалён образ nginx:latest?
+1. Причина в коде (в файле main.tf)
+В ресурсе docker_image указан параметр:
+resource "docker_image" "nginx" {
+  name         = "nginx:latest"
+  keep_locally = true  # ← Вот это ключевой параметр!
+}
+keep_locally = true — явное указание Terraform не удалять образ при выполнении terraform destroy.
+2. Подтверждение из документации Terraform
+В официальной документации провайдера Docker для ресурса docker_image:
+Source: Registry: docker_image
+keep_locally (Boolean)
+If true, then the Docker image won't be deleted on destroy operation. If this is false, it will delete the image from the Docker local storage on destroy operation.
+Перевод:
+Если true, образ не будет удаляться при операции destroy. Если false — Terraform удалит образ из локального хранилища Docker.
